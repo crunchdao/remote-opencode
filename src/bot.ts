@@ -6,6 +6,7 @@ import { handleMessageCreate } from './handlers/messageHandler.js';
 import * as serveManager from './services/serveManager.js';
 import { initializeProxySupport } from './services/proxySupport.js';
 import { getCachedModels } from './commands/model.js';
+import { startSessionFollower, stopSessionFollower } from './services/sessionFollower.js';
 
 export async function startBot(): Promise<void> {
   const config = getBotConfig();
@@ -26,6 +27,8 @@ export async function startBot(): Promise<void> {
     console.log(pc.green(`Ready! Logged in as ${pc.bold(c.user.tag)}`));
     // Pre-warm model cache so autocomplete never hits cold execSync
     try { getCachedModels(); } catch { }
+    // Checks `followExternalTurns` at every poll, so turning it on or off applies without a restart.
+    startSessionFollower(c);
   });
   
   client.on(Events.InteractionCreate, handleInteraction);
@@ -34,6 +37,7 @@ export async function startBot(): Promise<void> {
   function gracefulShutdown(signal: string) {
     console.log(pc.yellow(`\n${signal} received. Shutting down gracefully...`));
     
+    stopSessionFollower();
     serveManager.stopAll();
     console.log(pc.dim('All opencode serve instances stopped.'));
     

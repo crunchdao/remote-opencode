@@ -34,6 +34,11 @@ export interface AppConfig {
    */
   outputMode?: OutputMode;
   history?: Partial<HistoryConfig>;
+  /**
+   * Also show the turns this bot did not start (a prompt sent to the session by a script or another opencode client,
+   * a plugin's notice), in the history format, as long as the bot runs the session's opencode server.
+   */
+  followExternalTurns?: boolean;
 }
 
 export type BusyMessagesMode = 'queue' | 'interrupt';
@@ -183,6 +188,10 @@ export function getHistoryConfig(): HistoryConfig {
   return config;
 }
 
+export function getFollowExternalTurns(): boolean {
+  return loadConfig().followExternalTurns ?? false;
+}
+
 /** The behavior options (README, "Behavior options") with their effective values, defaults included. */
 export function getBehaviorOptions(): Record<string, unknown> {
   return {
@@ -190,6 +199,7 @@ export function getBehaviorOptions(): Record<string, unknown> {
     busyMessages: getBusyMessagesMode(),
     outputMode: getOutputMode(),
     history: getHistoryConfig(),
+    followExternalTurns: getFollowExternalTurns(),
   };
 }
 

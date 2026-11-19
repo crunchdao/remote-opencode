@@ -698,6 +698,7 @@ on every use, so a change applies without restarting the bot.
 | `history.toolCalls`     | `true`  | With `outputMode: history`, also post the agent's tool calls, as one compact line each (`🔧 bash npm test`, `❌` when the call failed). |
 | `history.reasoning`     | `false` | With `outputMode: history`, also post the agent's reasoning steps, as 💭 quotes, for the models that expose them. Some models only reason and never write text: without it, their runs show nothing but tool calls. |
 | `history.silent`        | `[]`    | With `outputMode: history`, the kinds of messages posted as `@silent` (shown in the thread without notifying anyone): `text`, `reasoning`, `toolCalls`, `messages` (quoted messages to the agent) and `notices` (one-line notices). For example `["reasoning", "toolCalls", "notices"]` keeps a notification only for what the agent writes. The status message and the end-of-run messages always notify. |
+| `followExternalTurns`   | `false` | Also show the turns this bot did not start: a prompt sent to the session by a script or another opencode client (`opencode run --attach`, the HTTP API), or a plugin's notice. They are posted in the session's thread in the history format, while the bot runs the session's opencode server. During such a turn, messages sent in the thread are handled as during a run (`busyMessages`), and the queue goes on once it ends. |
 | `history.toolCallsFlushSeconds` | `30` | With `outputMode: history`, how often the tool call lines are posted, batched. They are also posted before the next step. |
 
 ### data.json Structure

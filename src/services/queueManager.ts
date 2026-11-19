@@ -3,6 +3,7 @@ import * as dataStore from './dataStore.js';
 import { runPrompt } from './executionService.js';
 import * as sessionManager from './sessionManager.js';
 import { transcribe } from './voiceService.js';
+import { isFollowingTurn } from './sessionFollower.js';
 
 export async function processNextInQueue(
   channel: TextBasedChannel, 
@@ -45,7 +46,8 @@ export async function processNextInQueue(
   await runPrompt(channel, threadId, prompt, parentChannelId);
 }
 
+/** A run started from Discord is going on in the thread, or a turn started elsewhere (`followExternalTurns`). */
 export function isBusy(threadId: string): boolean {
   const sseClient = sessionManager.getSseClient(threadId);
-  return !!(sseClient && sseClient.isConnected());
+  return !!(sseClient && sseClient.isConnected()) || isFollowingTurn(threadId);
 }
