@@ -8,6 +8,7 @@ vi.mock('../services/sseClient.js', () => ({
     this.onPartUpdated = (callback: any) => (this.callbacks.part = callback);
     this.onReasoningUpdated = (callback: any) => (this.callbacks.reasoning = callback);
     this.onToolUpdated = (callback: any) => (this.callbacks.tool = callback);
+    this.onQuestionAsked = (callback: any) => (this.callbacks.question = callback);
     this.onSessionIdle = (callback: any) => (this.callbacks.idle = callback);
     this.onSessionError = (callback: any) => (this.callbacks.error = callback);
     this.onError = (callback: any) => (this.callbacks.connectionError = callback);

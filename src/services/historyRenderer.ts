@@ -78,6 +78,15 @@ export class HistoryRenderer {
     });
   }
 
+  /** A one-line notice, posted in order with the steps. */
+  onNotice(text: string): void {
+    this.postStepsBefore(null);
+    this.enqueue(async () => {
+      await this.flushToolLines();
+      await this.post(text, 'notices');
+    });
+  }
+
   /** Posts everything left, in order, and stops the periodic posting of tool call lines. */
   async finish(): Promise<void> {
     if (this.flushTimer) {

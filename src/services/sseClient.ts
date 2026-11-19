@@ -1,10 +1,11 @@
 import { EventSource } from "eventsource";
-import type { TextPart, ToolPart, ReasoningPart, SSEEvent, SessionErrorInfo } from "../types/index.js";
+import type { TextPart, ToolPart, ReasoningPart, QuestionRequest, SSEEvent, SessionErrorInfo } from "../types/index.js";
 import { getAuthHeaders } from "./serverAuth.js";
 
 type PartUpdatedCallback = (part: TextPart) => void;
 type ToolUpdatedCallback = (part: ToolPart) => void;
 type ReasoningUpdatedCallback = (part: ReasoningPart) => void;
+type QuestionAskedCallback = (request: QuestionRequest) => void;
 type SessionIdleCallback = (sessionId: string) => void;
 type SessionErrorCallback = (
   sessionId: string,
@@ -17,6 +18,7 @@ export class SSEClient {
   private partUpdatedCallbacks: PartUpdatedCallback[] = [];
   private toolUpdatedCallbacks: ToolUpdatedCallback[] = [];
   private reasoningUpdatedCallbacks: ReasoningUpdatedCallback[] = [];
+  private questionAskedCallbacks: QuestionAskedCallback[] = [];
   // opencode announces each message, with its role, before the message's parts.
   private userMessageIds = new Set<string>();
   private sessionIdleCallbacks: SessionIdleCallback[] = [];
@@ -70,6 +72,10 @@ export class SSEClient {
     this.reasoningUpdatedCallbacks.push(callback);
   }
 
+  onQuestionAsked(callback: QuestionAskedCallback): void {
+    this.questionAskedCallbacks.push(callback);
+  }
+
   onSessionIdle(callback: SessionIdleCallback): void {
     this.sessionIdleCallbacks.push(callback);
   }
@@ -121,6 +127,11 @@ export class SSEClient {
           ended: Boolean(part.time?.end),
         };
         this.reasoningUpdatedCallbacks.forEach((cb) => cb(reasoningPart));
+      }
+    } else if (event.type === "question.asked") {
+      const request = event.properties as unknown as QuestionRequest;
+      if (request?.id && request.sessionID) {
+        this.questionAskedCallbacks.forEach((cb) => cb(request));
       }
     } else if (event.type === "message.updated") {
       const info = (event.properties as any).info;

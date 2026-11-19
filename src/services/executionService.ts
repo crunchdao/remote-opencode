@@ -16,6 +16,7 @@ import { formatOutput, formatOutputForMobile, buildContextHeader } from '../util
 import { processNextInQueue } from './queueManager.js';
 import { getOutputMode, getHistoryConfig } from './configStore.js';
 import { HistoryRenderer } from './historyRenderer.js';
+import { autoAnswerQuestion } from './questionService.js';
 
 function formatElapsed(seconds: number): string {
   return `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`;
@@ -184,6 +185,17 @@ export async function runPrompt(
     sseClient.onReasoningUpdated((part) => {
       if (part.sessionID !== sessionId) return;
       history?.onReasoning(part.id, part.text, !!part.ended);
+    });
+
+    sseClient.onQuestionAsked((request) => {
+      if (request.sessionID !== sessionId) return;
+      autoAnswerQuestion(port, request)
+        .then((notice) => {
+          if (!notice) return;
+          if (history) history.onNotice(notice);
+          else void safeSend(notice);
+        })
+        .catch((error) => console.error('Could not answer a question:', error instanceof Error ? error.message : error));
     });
     history?.start();
 

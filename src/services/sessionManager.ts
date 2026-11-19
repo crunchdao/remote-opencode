@@ -2,6 +2,7 @@ import type { SSEClient } from "./sseClient.js";
 import * as dataStore from "./dataStore.js";
 import { sanitizeModel } from "../utils/stringUtils.js";
 import { getAuthHeaders, assertNotAuthError } from "./serverAuth.js";
+import type { QuestionRequest } from "../types/index.js";
 
 const threadSseClients = new Map<string, SSEClient>();
 
@@ -99,6 +100,29 @@ export async function sendPrompt(
     throw new Error(
       `Failed to send prompt: ${response.status} ${response.statusText} — ${responseBody}`,
     );
+  }
+}
+
+/** The questions of opencode's `question` tool still waiting for an answer, on this server. */
+export async function getPendingQuestions(port: number): Promise<QuestionRequest[]> {
+  const response = await fetch(`http://127.0.0.1:${port}/question`, { headers: getAuthHeaders() });
+  if (!response.ok) {
+    assertNotAuthError(response.status, "Failed to list the questions");
+    throw new Error(`Failed to list the questions: ${response.status} ${response.statusText}`);
+  }
+  return (await response.json()) as QuestionRequest[];
+}
+
+/** Answers a question request: one answer per question, each a list of selected labels (or a free text). */
+export async function replyToQuestion(port: number, requestId: string, answers: string[][]): Promise<void> {
+  const response = await fetch(`http://127.0.0.1:${port}/question/${requestId}/reply`, {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify({ answers }),
+  });
+  if (!response.ok) {
+    assertNotAuthError(response.status, "Failed to answer the question");
+    throw new Error(`Failed to answer the question: ${response.status} ${response.statusText}`);
   }
 }
 

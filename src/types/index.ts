@@ -60,6 +60,19 @@ export interface ReasoningPart {
   ended?: boolean;
 }
 
+/** A question of opencode's `question` tool, waiting for an answer (`question.asked` event, `GET /question`). */
+export interface QuestionRequest {
+  id: string;
+  sessionID: string;
+  questions: Array<{
+    question: string;
+    header?: string;
+    options?: Array<{ label: string; description?: string }>;
+    multiple?: boolean;
+    custom?: boolean;
+  }>;
+}
+
 export interface ToolPart {
   id: string;
   sessionID: string;

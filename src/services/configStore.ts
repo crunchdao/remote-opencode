@@ -39,6 +39,11 @@ export interface AppConfig {
    * a plugin's notice), in the history format, as long as the bot runs the session's opencode server.
    */
   followExternalTurns?: boolean;
+  /**
+   * opencode's `question` tool waits for an answer that the bot never shows, so an agent that asks one is stuck. When
+   * set, every question gets this text as its answer, and a notice is posted in the thread.
+   */
+  autoAnswerQuestions?: string;
 }
 
 export type BusyMessagesMode = 'queue' | 'interrupt';
@@ -192,6 +197,11 @@ export function getFollowExternalTurns(): boolean {
   return loadConfig().followExternalTurns ?? false;
 }
 
+export function getAutoAnswerQuestions(): string | null {
+  const answer = loadConfig().autoAnswerQuestions;
+  return typeof answer === 'string' && answer.trim() ? answer.trim() : null;
+}
+
 /** The behavior options (README, "Behavior options") with their effective values, defaults included. */
 export function getBehaviorOptions(): Record<string, unknown> {
   return {
@@ -200,6 +210,7 @@ export function getBehaviorOptions(): Record<string, unknown> {
     outputMode: getOutputMode(),
     history: getHistoryConfig(),
     followExternalTurns: getFollowExternalTurns(),
+    autoAnswerQuestions: getAutoAnswerQuestions(),
   };
 }
 

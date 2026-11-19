@@ -161,6 +161,22 @@ describe("SSEClient", () => {
       expect(reasoningCallback).toHaveBeenCalledWith({ id: "part-3", sessionID: "session-1", messageID: "msg-1", text: "Thinking", ended: false });
     });
 
+    it("should trigger the question callback when a question is asked", () => {
+      const questionCallback = vi.fn();
+      client.connect("http://127.0.0.1:3000");
+      client.onQuestionAsked(questionCallback);
+
+      const messageHandler =
+        mockEventSourceInstance.addEventListener.mock.calls.find(
+          (call: any) => call[0] === "message",
+        )?.[1];
+
+      const properties = { id: "question-1", sessionID: "session-1", questions: [{ question: "Go on?", header: "Go on", options: [] }] };
+      messageHandler({ data: JSON.stringify({ type: "question.asked", properties }) });
+
+      expect(questionCallback).toHaveBeenCalledWith(properties);
+    });
+
     it("should trigger the tool callback for tool parts", () => {
       const textCallback = vi.fn();
       const toolCallback = vi.fn();

@@ -5,6 +5,7 @@ import * as serveManager from './serveManager.js';
 import * as sessionManager from './sessionManager.js';
 import { SSEClient } from './sseClient.js';
 import { HistoryRenderer } from './historyRenderer.js';
+import { autoAnswerPendingQuestions, autoAnswerQuestion } from './questionService.js';
 import { getFollowExternalTurns, getHistoryConfig } from './configStore.js';
 import { isBusy, processNextInQueue } from './queueManager.js';
 
@@ -124,6 +125,17 @@ function follow(client: Client, threadId: string, sessionId: string, port: numbe
     turn().onTool(part);
   });
 
+  const postNotices = (notices: string[]) => notices.forEach((notice) => turn().onNotice(notice));
+  const logQuestionError = (error: unknown) =>
+    console.error('Could not answer a question:', error instanceof Error ? error.message : error);
+
+  sseClient.onQuestionAsked((request) => {
+    if (request.sessionID !== sessionId || isShownByRun()) return;
+    autoAnswerQuestion(port, request)
+      .then((notice) => notice && postNotices([notice]))
+      .catch(logQuestionError);
+  });
+
   const endTurn = () => {
     const ended = session.turn;
     if (!ended) return;
@@ -157,6 +169,9 @@ function follow(client: Client, threadId: string, sessionId: string, port: numbe
   sseClient.onError(() => unfollow(threadId));
 
   sseClient.connect(`http://127.0.0.1:${port}`);
+
+  // A question asked before the session was followed has no event left to come.
+  autoAnswerPendingQuestions(port, sessionId).then(postNotices).catch(logQuestionError);
 }
 
 function unfollow(threadId: string): void {
