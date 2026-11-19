@@ -28,9 +28,29 @@ export interface AppConfig {
    * ends, `interrupt` delivers it to the running session right away (the agent reads it at its next step).
    */
   busyMessages?: BusyMessagesMode;
+  /**
+   * How a run is shown: `live` rewrites one message with the latest output, `history` posts every step of the agent as
+   * its own message, so the whole run stays readable afterwards.
+   */
+  outputMode?: OutputMode;
+  history?: Partial<HistoryConfig>;
 }
 
 export type BusyMessagesMode = 'queue' | 'interrupt';
+
+export type OutputMode = 'live' | 'history';
+
+export interface HistoryConfig {
+  /** Post the agent's tool calls, one line each, batched. */
+  toolCalls: boolean;
+  /** How often the batched tool call lines are posted, in seconds (they are also posted before the next step). */
+  toolCallsFlushSeconds: number;
+}
+
+const DEFAULT_HISTORY_CONFIG: HistoryConfig = {
+  toolCalls: true,
+  toolCallsFlushSeconds: 30,
+};
 
 const CONFIG_DIR = join(homedir(), '.remote-opencode');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
@@ -137,11 +157,21 @@ export function getBusyMessagesMode(): BusyMessagesMode {
   return loadConfig().busyMessages === 'interrupt' ? 'interrupt' : 'queue';
 }
 
+export function getOutputMode(): OutputMode {
+  return loadConfig().outputMode === 'history' ? 'history' : 'live';
+}
+
+export function getHistoryConfig(): HistoryConfig {
+  return { ...DEFAULT_HISTORY_CONFIG, ...loadConfig().history };
+}
+
 /** The behavior options (README, "Behavior options") with their effective values, defaults included. */
 export function getBehaviorOptions(): Record<string, unknown> {
   return {
     ignoreUnboundChannels: getIgnoreUnboundChannels(),
     busyMessages: getBusyMessagesMode(),
+    outputMode: getOutputMode(),
+    history: getHistoryConfig(),
   };
 }
 

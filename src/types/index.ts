@@ -43,6 +43,23 @@ export interface TextPart {
   sessionID: string;
   messageID: string;
   text: string;
+  /** The step is complete (opencode set its end time). */
+  ended?: boolean;
+  /** The part belongs to a message of the user, not of the agent. */
+  fromUser?: boolean;
+  /** Added by opencode itself (for example, the content of an attached file), not typed by anyone. */
+  synthetic?: boolean;
+}
+
+export interface ToolPart {
+  id: string;
+  sessionID: string;
+  messageID: string;
+  tool: string;
+  state?: {
+    status?: 'pending' | 'running' | 'completed' | 'error';
+    input?: Record<string, unknown>;
+  };
 }
 
 export interface SSEEvent {

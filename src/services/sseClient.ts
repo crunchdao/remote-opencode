@@ -1,8 +1,9 @@
 import { EventSource } from "eventsource";
-import type { TextPart, SSEEvent, SessionErrorInfo } from "../types/index.js";
+import type { TextPart, ToolPart, SSEEvent, SessionErrorInfo } from "../types/index.js";
 import { getAuthHeaders } from "./serverAuth.js";
 
 type PartUpdatedCallback = (part: TextPart) => void;
+type ToolUpdatedCallback = (part: ToolPart) => void;
 type SessionIdleCallback = (sessionId: string) => void;
 type SessionErrorCallback = (
   sessionId: string,
@@ -13,6 +14,9 @@ type ErrorCallback = (error: Error) => void;
 export class SSEClient {
   private eventSource: EventSource | null = null;
   private partUpdatedCallbacks: PartUpdatedCallback[] = [];
+  private toolUpdatedCallbacks: ToolUpdatedCallback[] = [];
+  // opencode announces each message, with its role, before the message's parts.
+  private userMessageIds = new Set<string>();
   private sessionIdleCallbacks: SessionIdleCallback[] = [];
   private sessionErrorCallbacks: SessionErrorCallback[] = [];
   private errorCallbacks: ErrorCallback[] = [];
@@ -56,6 +60,10 @@ export class SSEClient {
     this.partUpdatedCallbacks.push(callback);
   }
 
+  onToolUpdated(callback: ToolUpdatedCallback): void {
+    this.toolUpdatedCallbacks.push(callback);
+  }
+
   onSessionIdle(callback: SessionIdleCallback): void {
     this.sessionIdleCallbacks.push(callback);
   }
@@ -91,8 +99,18 @@ export class SSEClient {
           sessionID: part.sessionID,
           messageID: part.messageID,
           text: part.text,
+          ended: Boolean(part.time?.end),
+          fromUser: this.userMessageIds.has(part.messageID),
+          synthetic: Boolean(part.synthetic),
         };
         this.partUpdatedCallbacks.forEach((cb) => cb(textPart));
+      } else if (part && part.type === "tool") {
+        this.toolUpdatedCallbacks.forEach((cb) => cb(part as ToolPart));
+      }
+    } else if (event.type === "message.updated") {
+      const info = (event.properties as any).info;
+      if (info?.role === "user" && info.id) {
+        this.userMessageIds.add(info.id);
       }
     } else if (event.type === "session.idle") {
       const sessionID = (event.properties as any).sessionID;

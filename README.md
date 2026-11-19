@@ -694,6 +694,9 @@ on every use, so a change applies without restarting the bot.
 | ----------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ignoreUnboundChannels` | `false` | When `true`, slash commands and buttons are only answered in channels bound to one of this instance's projects (and in their threads). Lets several instances share one Discord bot, each bound to its own channels. Bind the channels before turning it on. |
 | `busyMessages`          | `queue` | What happens to a message sent in a passthrough thread while its session is working. `queue` runs it once the current run ends (📥). `interrupt` delivers it to the running session right away (💬): the agent reads it at its next step, without stopping. A failed delivery falls back to the queue. Voice messages are always queued. |
+| `outputMode`            | `live`  | How a run is shown. `live` rewrites one message with the latest output. `history` posts every finished step of the agent as its own message, and never edits it, so the whole run stays readable afterwards; the status message then only shows the elapsed time. Messages that reach the session from elsewhere than the thread (another opencode client, a script) are quoted where the agent received them. |
+| `history.toolCalls`     | `true`  | With `outputMode: history`, also post the agent's tool calls, as one compact line each (`🔧 bash npm test`, `❌` when the call failed). |
+| `history.toolCallsFlushSeconds` | `30` | With `outputMode: history`, how often the tool call lines are posted, batched. They are also posted before the next step. |
 
 ### data.json Structure
 

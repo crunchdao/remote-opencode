@@ -13,6 +13,12 @@ import * as worktreeManager from './worktreeManager.js';
 import { SSEClient } from './sseClient.js';
 import { formatOutput, formatOutputForMobile, buildContextHeader } from '../utils/messageFormatter.js';
 import { processNextInQueue } from './queueManager.js';
+import { getOutputMode, getHistoryConfig } from './configStore.js';
+import { HistoryRenderer } from './historyRenderer.js';
+
+function formatElapsed(seconds: number): string {
+  return `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`;
+}
 
 export async function runPrompt(
   channel: TextBasedChannel, 
@@ -131,7 +137,10 @@ export async function runPrompt(
       return false;
     }
   };
-  
+
+  // `outputMode: history`: every step is posted as its own message, and the status message only shows the progress.
+  const history = getOutputMode() === 'history' ? new HistoryRenderer(safeSend, getHistoryConfig()) : null;
+
   try {
     port = await serveManager.spawnServe(effectivePath, preferredModel);
     
@@ -153,9 +162,25 @@ export async function runPrompt(
     
     sseClient.onPartUpdated((part) => {
       if (part.sessionID !== sessionId) return;
+      if (history) {
+        // Messages typed in this thread are already shown; those from elsewhere are quoted.
+        if (part.fromUser) {
+          if (!part.synthetic && !sessionManager.wasSentByBot(sessionId, part.text)) {
+            history.onUserMessage(part.id, part.text);
+          }
+          return;
+        }
+        history.onText(part.id, part.text, !!part.ended);
+      }
       accumulatedText = part.text;
     });
-    
+
+    sseClient.onToolUpdated((part) => {
+      if (part.sessionID !== sessionId) return;
+      history?.onTool(part);
+    });
+    history?.start();
+
     sseClient.onSessionIdle((idleSessionId) => {
       if (idleSessionId !== sessionId) return;
       if (!promptSent) return;
@@ -182,7 +207,10 @@ export async function runPrompt(
                 .setDisabled(true)
             );
 
-          if (!accumulatedText.trim()) {
+          if (history) await history.finish();
+          const hasOutput = history ? history.messageCount > 0 : !!accumulatedText.trim();
+
+          if (!hasOutput) {
             const edited = await updateStreamMessage(
               `${contextHeader}\n📌 **Prompt**: ${prompt}\n\n⚠️ No output received — the model may have encountered an issue.`,
               [disabledButtons]
@@ -191,6 +219,9 @@ export async function runPrompt(
               await safeSend('⚠️ No output received — the model may have encountered an issue.');
             }
             await safeSend('⚠️ Done (no output received)');
+          } else if (history) {
+            await updateStreamMessage(`${contextHeader}\n📌 **Prompt**: ${prompt}\n\n✅ Finished, see the messages below.`, [disabledButtons]);
+            await safeSend('✅ Done');
           } else {
             const result = formatOutputForMobile(accumulatedText);
             
@@ -232,6 +263,7 @@ export async function runPrompt(
       
       (async () => {
         try {
+          await history?.finish();
           const errorMsg = errorInfo.data?.message || errorInfo.name || 'Unknown error';
           const disabledButtons = new ActionRowBuilder<ButtonBuilder>()
             .addComponents(
@@ -275,6 +307,7 @@ export async function runPrompt(
       
       (async () => {
         try {
+          await history?.finish();
           const edited = await updateStreamMessage(`${contextHeader}\n📌 **Prompt**: ${prompt}\n\n❌ Connection error: ${error.message}`, []);
           if (!edited) {
             await safeSend(`❌ Connection error: ${error.message}`);
@@ -300,6 +333,21 @@ export async function runPrompt(
     updateInterval = setInterval(async () => {
       tick++;
       try {
+        if (history) {
+          // The steps are posted as messages: the typing indicator (shown for ~10 s) says the agent works, and the
+          // status message only shows the elapsed time, edited every 15 s.
+          if (tick % 8 === 1 && 'sendTyping' in channel) {
+            await channel.sendTyping().catch(() => { });
+          }
+          if (tick % 15 === 1) {
+            await updateStreamMessage(
+              `${contextHeader}\n📌 **Prompt**: ${prompt}\n\n${spinner[tick % spinner.length]} **Running** (${formatElapsed(tick)})`,
+              [buttons]
+            );
+          }
+          return;
+        }
+
         const formatted = formatOutput(accumulatedText);
         const spinnerChar = spinner[tick % spinner.length];
         const newContent = formatted || 'Processing...';
@@ -324,7 +372,8 @@ export async function runPrompt(
     if (updateInterval) {
       clearInterval(updateInterval);
     }
-    
+    await history?.finish();
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const edited = await updateStreamMessage(`${contextHeader}\n📌 **Prompt**: ${prompt}\n\n❌ OpenCode execution failed: ${errorMessage}`, []);
     if (!edited) {

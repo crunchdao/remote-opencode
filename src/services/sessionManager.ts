@@ -47,12 +47,30 @@ function parseModelString(
   };
 }
 
+// The prompts this bot sent to each session, so their echo in the session's events is not shown a second time in
+// Discord, where they were typed. Only the latest ones are kept.
+const sentPrompts = new Map<string, string[]>();
+const SENT_PROMPTS_KEPT = 20;
+
+function rememberSentPrompt(sessionId: string, text: string): void {
+  const prompts = [...(sentPrompts.get(sessionId) ?? []), text.trim()];
+  sentPrompts.set(sessionId, prompts.slice(-SENT_PROMPTS_KEPT));
+}
+
+/** Whether this bot sent `text` to the session (it was typed in Discord), as opposed to another client of opencode. */
+export function wasSentByBot(sessionId: string, text: string): boolean {
+  return sentPrompts.get(sessionId)?.includes(text.trim()) ?? false;
+}
+
 export async function sendPrompt(
   port: number,
   sessionId: string,
   text: string,
   model?: string,
 ): Promise<void> {
+  // Before sending: the session's events can arrive before the response does.
+  rememberSentPrompt(sessionId, text);
+
   const url = `http://127.0.0.1:${port}/session/${sessionId}/prompt_async`;
   const body: {
     parts: { type: string; text: string }[];

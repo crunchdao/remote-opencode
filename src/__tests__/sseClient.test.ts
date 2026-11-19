@@ -111,7 +111,57 @@ describe("SSEClient", () => {
         sessionID: "session-1",
         messageID: "msg-1",
         text: "Hello, world!",
+        ended: false,
+        fromUser: false,
+        synthetic: false,
       });
+    });
+
+    it("should mark the parts of a user message and the finished steps", () => {
+      const callback = vi.fn();
+      client.connect("http://127.0.0.1:3000");
+      client.onPartUpdated(callback);
+
+      const messageHandler =
+        mockEventSourceInstance.addEventListener.mock.calls.find(
+          (call: any) => call[0] === "message",
+        )?.[1];
+
+      messageHandler({
+        data: JSON.stringify({
+          type: "message.updated",
+          properties: { info: { id: "msg-user", role: "user" } },
+        }),
+      });
+      messageHandler({
+        data: JSON.stringify({
+          type: "message.part.updated",
+          properties: {
+            part: { type: "text", id: "part-1", sessionID: "session-1", messageID: "msg-user", text: "continue", time: { start: 1, end: 2 } },
+          },
+        }),
+      });
+
+      expect(callback).toHaveBeenCalledWith(expect.objectContaining({ fromUser: true, ended: true }));
+    });
+
+    it("should trigger the tool callback for tool parts", () => {
+      const textCallback = vi.fn();
+      const toolCallback = vi.fn();
+      client.connect("http://127.0.0.1:3000");
+      client.onPartUpdated(textCallback);
+      client.onToolUpdated(toolCallback);
+
+      const messageHandler =
+        mockEventSourceInstance.addEventListener.mock.calls.find(
+          (call: any) => call[0] === "message",
+        )?.[1];
+
+      const part = { type: "tool", id: "part-2", sessionID: "session-1", messageID: "msg-1", tool: "bash", state: { status: "completed", input: { command: "ls" } } };
+      messageHandler({ data: JSON.stringify({ type: "message.part.updated", properties: { part } }) });
+
+      expect(toolCallback).toHaveBeenCalledWith(part);
+      expect(textCallback).not.toHaveBeenCalled();
     });
 
     it("should not trigger callback for non-text parts", () => {
