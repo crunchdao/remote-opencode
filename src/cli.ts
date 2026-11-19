@@ -8,7 +8,9 @@ import { runSetupWizard } from './setup/wizard.js';
 import { deployCommands } from './setup/deploy.js';
 import { undeployCommands } from './setup/undeploy.js';
 import { startBot } from './bot.js';
-import { hasBotConfig, getConfigDir, getBehaviorOptions, getAllowedUserIds, addAllowedUserId, removeAllowedUserId, setAllowedUserIds, getOpenAIApiKey, setOpenAIApiKey, removeOpenAIApiKey } from './services/configStore.js';
+import { readFileSync } from 'node:fs';
+import { requestThread } from './services/controlServer.js';
+import { hasBotConfig, getConfigDir, getBehaviorOptions, getControlPort, getAllowedUserIds, addAllowedUserId, removeAllowedUserId, setAllowedUserIds, getOpenAIApiKey, setOpenAIApiKey, removeOpenAIApiKey } from './services/configStore.js';
 
 const require = createRequire(import.meta.url);
 // In dev mode (src/cli.ts), package.json is one level up
@@ -80,6 +82,34 @@ program
     }
     
     await undeployCommands();
+  });
+
+program
+  .command('start-thread <channelId>')
+  .description('Start a session in a channel, as /opencode would, through the running bot (needs `controlPort`)')
+  .option('--prompt <text>', 'The prompt')
+  .option('--prompt-file <path>', 'Read the prompt from this file')
+  .option('--title <name>', 'Name of the thread (the start of the prompt if not specified)')
+  .action(async (channelId: string, options: { prompt?: string; promptFile?: string; title?: string }) => {
+    const port = getControlPort();
+    if (port === null) {
+      console.error(pc.red('No `controlPort` in config.json: the bot has no control endpoint.'));
+      process.exit(1);
+    }
+
+    const prompt = options.promptFile ? readFileSync(options.promptFile, 'utf-8') : options.prompt;
+    if (!prompt?.trim()) {
+      console.error(pc.red('Give the prompt with --prompt or --prompt-file.'));
+      process.exit(1);
+    }
+
+    try {
+      const threadId = await requestThread(port, { channelId, prompt, title: options.title });
+      console.log(threadId);
+    } catch (error) {
+      console.error(pc.red(`Could not start the session: ${error instanceof Error ? error.message : error}`));
+      process.exit(1);
+    }
   });
 
 program

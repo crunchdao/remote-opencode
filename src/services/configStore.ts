@@ -44,6 +44,11 @@ export interface AppConfig {
    * set, every question gets this text as its answer, and a notice is posted in the thread.
    */
   autoAnswerQuestions?: string;
+  /**
+   * Port of a local HTTP endpoint (127.0.0.1 only) through which `remote-opencode start-thread` starts a session as
+   * `/opencode` would. Unset: no endpoint.
+   */
+  controlPort?: number;
 }
 
 export type BusyMessagesMode = 'queue' | 'interrupt';
@@ -202,6 +207,11 @@ export function getAutoAnswerQuestions(): string | null {
   return typeof answer === 'string' && answer.trim() ? answer.trim() : null;
 }
 
+export function getControlPort(): number | null {
+  const port = loadConfig().controlPort;
+  return Number.isInteger(port) && (port as number) > 0 && (port as number) < 65536 ? (port as number) : null;
+}
+
 /** The behavior options (README, "Behavior options") with their effective values, defaults included. */
 export function getBehaviorOptions(): Record<string, unknown> {
   return {
@@ -211,6 +221,7 @@ export function getBehaviorOptions(): Record<string, unknown> {
     history: getHistoryConfig(),
     followExternalTurns: getFollowExternalTurns(),
     autoAnswerQuestions: getAutoAnswerQuestions(),
+    controlPort: getControlPort(),
   };
 }
 

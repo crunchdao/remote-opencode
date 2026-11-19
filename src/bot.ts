@@ -1,6 +1,7 @@
 import { Client, GatewayIntentBits, Events } from 'discord.js';
 import pc from 'picocolors';
-import { getBotConfig } from './services/configStore.js';
+import { getBotConfig, getControlPort } from './services/configStore.js';
+import { startControlServer } from './services/controlServer.js';
 import { handleInteraction } from './handlers/interactionHandler.js';
 import { handleMessageCreate } from './handlers/messageHandler.js';
 import * as serveManager from './services/serveManager.js';
@@ -29,6 +30,9 @@ export async function startBot(): Promise<void> {
     try { getCachedModels(); } catch { }
     // Checks `followExternalTurns` at every poll, so turning it on or off applies without a restart.
     startSessionFollower(c);
+
+    const controlPort = getControlPort();
+    if (controlPort !== null) startControlServer(c, controlPort);
   });
   
   client.on(Events.InteractionCreate, handleInteraction);
