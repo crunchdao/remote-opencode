@@ -1,9 +1,10 @@
 import { EventSource } from "eventsource";
-import type { TextPart, ToolPart, SSEEvent, SessionErrorInfo } from "../types/index.js";
+import type { TextPart, ToolPart, ReasoningPart, SSEEvent, SessionErrorInfo } from "../types/index.js";
 import { getAuthHeaders } from "./serverAuth.js";
 
 type PartUpdatedCallback = (part: TextPart) => void;
 type ToolUpdatedCallback = (part: ToolPart) => void;
+type ReasoningUpdatedCallback = (part: ReasoningPart) => void;
 type SessionIdleCallback = (sessionId: string) => void;
 type SessionErrorCallback = (
   sessionId: string,
@@ -15,6 +16,7 @@ export class SSEClient {
   private eventSource: EventSource | null = null;
   private partUpdatedCallbacks: PartUpdatedCallback[] = [];
   private toolUpdatedCallbacks: ToolUpdatedCallback[] = [];
+  private reasoningUpdatedCallbacks: ReasoningUpdatedCallback[] = [];
   // opencode announces each message, with its role, before the message's parts.
   private userMessageIds = new Set<string>();
   private sessionIdleCallbacks: SessionIdleCallback[] = [];
@@ -64,6 +66,10 @@ export class SSEClient {
     this.toolUpdatedCallbacks.push(callback);
   }
 
+  onReasoningUpdated(callback: ReasoningUpdatedCallback): void {
+    this.reasoningUpdatedCallbacks.push(callback);
+  }
+
   onSessionIdle(callback: SessionIdleCallback): void {
     this.sessionIdleCallbacks.push(callback);
   }
@@ -106,6 +112,15 @@ export class SSEClient {
         this.partUpdatedCallbacks.forEach((cb) => cb(textPart));
       } else if (part && part.type === "tool") {
         this.toolUpdatedCallbacks.forEach((cb) => cb(part as ToolPart));
+      } else if (part && part.type === "reasoning") {
+        const reasoningPart: ReasoningPart = {
+          id: part.id,
+          sessionID: part.sessionID,
+          messageID: part.messageID,
+          text: part.text ?? "",
+          ended: Boolean(part.time?.end),
+        };
+        this.reasoningUpdatedCallbacks.forEach((cb) => cb(reasoningPart));
       }
     } else if (event.type === "message.updated") {
       const info = (event.properties as any).info;

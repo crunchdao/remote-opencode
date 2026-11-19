@@ -179,6 +179,11 @@ export async function runPrompt(
       if (part.sessionID !== sessionId) return;
       history?.onTool(part);
     });
+
+    sseClient.onReasoningUpdated((part) => {
+      if (part.sessionID !== sessionId) return;
+      history?.onReasoning(part.id, part.text, !!part.ended);
+    });
     history?.start();
 
     sseClient.onSessionIdle((idleSessionId) => {

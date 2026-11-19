@@ -16,8 +16,10 @@ const TOOL_SUBJECT_LIMIT = 160;
  * Steps are posted once complete, or as soon as a later step starts (a step is never updated after that). Tool call
  * lines are batched: posted every `toolCallsFlushSeconds`, and before the next step.
  */
+type StepKind = 'text' | 'reasoning';
+
 export class HistoryRenderer {
-  private readonly steps = new Map<string, string>();
+  private readonly steps = new Map<string, { kind: StepKind; text: string }>();
   private readonly posted = new Set<string>();
   private toolLines: string[] = [];
   private chain: Promise<void> = Promise.resolve();
@@ -37,7 +39,13 @@ export class HistoryRenderer {
 
   /** A text step of the agent changed; `ended` once it is complete. */
   onText(id: string, text: string, ended: boolean): void {
-    this.updateStep(id, text, ended);
+    this.updateStep(id, 'text', text, ended);
+  }
+
+  /** A reasoning step changed: posted as a 💭 quote, when `reasoning` is on. */
+  onReasoning(id: string, text: string, ended: boolean): void {
+    if (!this.options.reasoning) return;
+    this.updateStep(id, 'reasoning', text, ended);
   }
 
   onTool(part: ToolPart): void {
@@ -83,13 +91,13 @@ export class HistoryRenderer {
     return this.postedCount;
   }
 
-  private updateStep(id: string, text: string, ended: boolean): void {
+  private updateStep(id: string, kind: StepKind, text: string, ended: boolean): void {
     if (this.posted.has(id)) return;
 
     // A new step: the previous ones are complete.
     if (!this.steps.has(id)) this.postStepsBefore(id);
 
-    this.steps.set(id, text);
+    this.steps.set(id, { kind, text });
     if (ended) this.enqueue(() => this.postStep(id));
   }
 
@@ -103,12 +111,14 @@ export class HistoryRenderer {
     if (this.posted.has(id)) return;
     this.posted.add(id);
 
-    const text = (this.steps.get(id) ?? '').trim();
+    const step = this.steps.get(id);
     this.steps.delete(id);
-    if (!text) return;
+    const text = step?.text.trim();
+    if (!step || !text) return;
 
     await this.flushToolLines();
-    for (const chunk of formatOutputForMobile(text).chunks) {
+    const chunks = step.kind === 'reasoning' ? quoteChunks(text, '💭 ') : formatOutputForMobile(text).chunks;
+    for (const chunk of chunks) {
       await this.post(chunk);
     }
   }
@@ -161,6 +171,16 @@ export function joinLines(lines: string[]): string[] {
 
   if (chunk) chunks.push(chunk);
   return chunks;
+}
+
+/** The whole text as block quotes, split on line boundaries so that every message stays a valid quote. */
+export function quoteChunks(text: string, header: string): string[] {
+  const lines = text
+    .split('\n')
+    .filter((line) => line.trim())
+    .flatMap((line) => line.match(/[\s\S]{1,1800}/g) ?? []);
+
+  return joinLines(lines.map((line, index) => `> ${index === 0 ? header : ''}${line}`));
 }
 
 /** The text as a block quote, with the header on its first line, cut to fit in one message. */

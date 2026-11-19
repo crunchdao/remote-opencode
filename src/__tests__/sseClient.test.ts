@@ -145,6 +145,22 @@ describe("SSEClient", () => {
       expect(callback).toHaveBeenCalledWith(expect.objectContaining({ fromUser: true, ended: true }));
     });
 
+    it("should trigger the reasoning callback for reasoning parts", () => {
+      const reasoningCallback = vi.fn();
+      client.connect("http://127.0.0.1:3000");
+      client.onReasoningUpdated(reasoningCallback);
+
+      const messageHandler =
+        mockEventSourceInstance.addEventListener.mock.calls.find(
+          (call: any) => call[0] === "message",
+        )?.[1];
+
+      const part = { type: "reasoning", id: "part-3", sessionID: "session-1", messageID: "msg-1", text: "Thinking", time: { start: 1 } };
+      messageHandler({ data: JSON.stringify({ type: "message.part.updated", properties: { part } }) });
+
+      expect(reasoningCallback).toHaveBeenCalledWith({ id: "part-3", sessionID: "session-1", messageID: "msg-1", text: "Thinking", ended: false });
+    });
+
     it("should trigger the tool callback for tool parts", () => {
       const textCallback = vi.fn();
       const toolCallback = vi.fn();

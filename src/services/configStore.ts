@@ -45,11 +45,14 @@ export interface HistoryConfig {
   toolCalls: boolean;
   /** How often the batched tool call lines are posted, in seconds (they are also posted before the next step). */
   toolCallsFlushSeconds: number;
+  /** Post the agent's reasoning steps, as quotes, for the models that expose them. */
+  reasoning: boolean;
 }
 
 const DEFAULT_HISTORY_CONFIG: HistoryConfig = {
   toolCalls: true,
   toolCallsFlushSeconds: 30,
+  reasoning: false,
 };
 
 const CONFIG_DIR = join(homedir(), '.remote-opencode');

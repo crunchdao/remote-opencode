@@ -696,6 +696,7 @@ on every use, so a change applies without restarting the bot.
 | `busyMessages`          | `queue` | What happens to a message sent in a passthrough thread while its session is working. `queue` runs it once the current run ends (📥). `interrupt` delivers it to the running session right away (💬): the agent reads it at its next step, without stopping. A failed delivery falls back to the queue. Voice messages are always queued. |
 | `outputMode`            | `live`  | How a run is shown. `live` rewrites one message with the latest output. `history` posts every finished step of the agent as its own message, and never edits it, so the whole run stays readable afterwards; the status message then only shows the elapsed time. Messages that reach the session from elsewhere than the thread (another opencode client, a script) are quoted where the agent received them. |
 | `history.toolCalls`     | `true`  | With `outputMode: history`, also post the agent's tool calls, as one compact line each (`🔧 bash npm test`, `❌` when the call failed). |
+| `history.reasoning`     | `false` | With `outputMode: history`, also post the agent's reasoning steps, as 💭 quotes, for the models that expose them. Some models only reason and never write text: without it, their runs show nothing but tool calls. |
 | `history.toolCallsFlushSeconds` | `30` | With `outputMode: history`, how often the tool call lines are posted, batched. They are also posted before the next step. |
 
 ### data.json Structure

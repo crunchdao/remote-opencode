@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { HistoryRenderer, describeTool, joinLines, quote } from '../services/historyRenderer.js';
+import { HistoryRenderer, describeTool, joinLines, quote, quoteChunks } from '../services/historyRenderer.js';
 import type { ToolPart } from '../types/index.js';
 
-const OPTIONS = { toolCalls: true, toolCallsFlushSeconds: 30 };
+const OPTIONS = { toolCalls: true, toolCallsFlushSeconds: 30, reasoning: false };
 
 function tool(id: string, command: string, status: 'completed' | 'error' | 'running' = 'completed'): ToolPart {
   return { id, sessionID: 'session-1', messageID: 'message-1', tool: 'bash', state: { status, input: { command } } };
@@ -79,6 +79,26 @@ describe('HistoryRenderer', () => {
     expect(sent).toEqual(['Working', '> 💬 **Message to the agent:**\n> Please also check\n> the logs']);
   });
 
+  it('leaves the reasoning out by default', async () => {
+    const renderer = new HistoryRenderer(send, OPTIONS);
+
+    renderer.onReasoning('reasoning-1', 'Thinking about it', true);
+    await renderer.finish();
+
+    expect(sent).toEqual([]);
+    expect(renderer.messageCount).toBe(0);
+  });
+
+  it('posts the reasoning as a quote, in order with the text', async () => {
+    const renderer = new HistoryRenderer(send, { ...OPTIONS, reasoning: true });
+
+    renderer.onReasoning('reasoning-1', 'The data looks noisy.\n\nTry a median filter.', false);
+    renderer.onText('step-1', 'Applying a median filter', true);
+    await renderer.finish();
+
+    expect(sent).toEqual(['> 💭 The data looks noisy.\n> Try a median filter.', 'Applying a median filter']);
+  });
+
   describe('periodic posting of the tool calls', () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
@@ -119,6 +139,16 @@ describe('joinLines', () => {
 
     expect(chunks.length).toBe(2);
     expect(chunks.every((chunk) => chunk.length <= 1900)).toBe(true);
+  });
+});
+
+describe('quoteChunks', () => {
+  it('keeps every chunk a valid quote, with the header only once', () => {
+    const chunks = quoteChunks(Array.from({ length: 40 }, (_, index) => `line ${index} ${'x'.repeat(80)}`).join('\n'), '💭 ');
+
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks.every((chunk) => chunk.split('\n').every((line) => line.startsWith('> ')))).toBe(true);
+    expect(chunks.join('\n').split('💭').length).toBe(2);
   });
 });
 

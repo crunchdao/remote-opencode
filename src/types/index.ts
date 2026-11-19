@@ -51,6 +51,15 @@ export interface TextPart {
   synthetic?: boolean;
 }
 
+/** A reasoning step of the agent (the model's thinking, for the models that expose it). */
+export interface ReasoningPart {
+  id: string;
+  sessionID: string;
+  messageID: string;
+  text: string;
+  ended?: boolean;
+}
+
 export interface ToolPart {
   id: string;
   sessionID: string;
