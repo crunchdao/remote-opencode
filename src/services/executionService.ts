@@ -18,6 +18,8 @@ import { getOutputMode, getHistoryConfig } from './configStore.js';
 import { HistoryRenderer } from './historyRenderer.js';
 import { autoAnswerQuestion } from './questionService.js';
 
+const PROMPT_SHOWN_LIMIT = 1500;
+
 function formatElapsed(seconds: number): string {
   return `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`;
 }
@@ -91,6 +93,9 @@ export async function runPrompt(
   
   const branchName = worktreeMapping?.branchName ?? await worktreeManager.getCurrentBranch(effectivePath) ?? 'main';
   const contextHeader = buildContextHeader(branchName, modelDisplay);
+  // The status message repeats the prompt: a long one would exceed Discord's 2000 characters, the message would be
+  // refused, and the run would never start. The agent still receives the whole prompt.
+  const shownPrompt = prompt.length > PROMPT_SHOWN_LIMIT ? `${prompt.slice(0, PROMPT_SHOWN_LIMIT)}…` : prompt;
   
   const buttons = new ActionRowBuilder<ButtonBuilder>()
     .addComponents(
@@ -103,7 +108,7 @@ export async function runPrompt(
   let streamMessage: Message;
   try {
     streamMessage = await (channel as any).send({
-      content: `${contextHeader}\n📌 **Prompt**: ${prompt}\n\n🚀 Starting OpenCode server...`,
+      content: `${contextHeader}\n📌 **Prompt**: ${shownPrompt}\n\n🚀 Starting OpenCode server...`,
       components: [buttons]
     });
   } catch {
@@ -146,7 +151,7 @@ export async function runPrompt(
   try {
     port = await serveManager.spawnServe(effectivePath, preferredModel);
     
-    await updateStreamMessage(`${contextHeader}\n📌 **Prompt**: ${prompt}\n\n⏳ Waiting for OpenCode server...`, [buttons]);
+    await updateStreamMessage(`${contextHeader}\n📌 **Prompt**: ${shownPrompt}\n\n⏳ Waiting for OpenCode server...`, [buttons]);
     await serveManager.waitForReady(port, 30000, effectivePath, preferredModel);
     
     const settings = dataStore.getQueueSettings(threadId);
@@ -230,7 +235,7 @@ export async function runPrompt(
 
           if (!hasOutput) {
             const edited = await updateStreamMessage(
-              `${contextHeader}\n📌 **Prompt**: ${prompt}\n\n⚠️ No output received — the model may have encountered an issue.`,
+              `${contextHeader}\n📌 **Prompt**: ${shownPrompt}\n\n⚠️ No output received — the model may have encountered an issue.`,
               [disabledButtons]
             );
             if (!edited) {
@@ -238,13 +243,13 @@ export async function runPrompt(
             }
             await safeSend('⚠️ Done (no output received)');
           } else if (history) {
-            await updateStreamMessage(`${contextHeader}\n📌 **Prompt**: ${prompt}\n\n✅ Finished, see the messages below.`, [disabledButtons]);
+            await updateStreamMessage(`${contextHeader}\n📌 **Prompt**: ${shownPrompt}\n\n✅ Finished, see the messages below.`, [disabledButtons]);
             await safeSend('✅ Done');
           } else {
             const result = formatOutputForMobile(accumulatedText);
             
             const editSuccess = await updateStreamMessage(
-              `${contextHeader}\n📌 **Prompt**: ${prompt}\n\n${result.chunks[0]}`,
+              `${contextHeader}\n📌 **Prompt**: ${shownPrompt}\n\n${result.chunks[0]}`,
               [disabledButtons]
             );
             
@@ -293,7 +298,7 @@ export async function runPrompt(
             );
           
           const edited = await updateStreamMessage(
-            `${contextHeader}\n📌 **Prompt**: ${prompt}\n\n❌ **Error**: ${errorMsg}`,
+            `${contextHeader}\n📌 **Prompt**: ${shownPrompt}\n\n❌ **Error**: ${errorMsg}`,
             [disabledButtons]
           );
           if (!edited) {
@@ -326,7 +331,7 @@ export async function runPrompt(
       (async () => {
         try {
           await history?.finish();
-          const edited = await updateStreamMessage(`${contextHeader}\n📌 **Prompt**: ${prompt}\n\n❌ Connection error: ${error.message}`, []);
+          const edited = await updateStreamMessage(`${contextHeader}\n📌 **Prompt**: ${shownPrompt}\n\n❌ Connection error: ${error.message}`, []);
           if (!edited) {
             await safeSend(`❌ Connection error: ${error.message}`);
           }
@@ -359,7 +364,7 @@ export async function runPrompt(
           }
           if (tick % 15 === 1) {
             await updateStreamMessage(
-              `${contextHeader}\n📌 **Prompt**: ${prompt}\n\n${spinner[tick % spinner.length]} **Running** (${formatElapsed(tick)})`,
+              `${contextHeader}\n📌 **Prompt**: ${shownPrompt}\n\n${spinner[tick % spinner.length]} **Running** (${formatElapsed(tick)})`,
               [buttons]
             );
           }
@@ -373,7 +378,7 @@ export async function runPrompt(
         if (newContent !== lastContent || tick % 2 === 0) {
           lastContent = newContent;
           await updateStreamMessage(
-            `${contextHeader}\n📌 **Prompt**: ${prompt}\n\n${spinnerChar} **Running...**\n${newContent}`,
+            `${contextHeader}\n📌 **Prompt**: ${shownPrompt}\n\n${spinnerChar} **Running...**\n${newContent}`,
             [buttons]
           );
         }
@@ -382,7 +387,7 @@ export async function runPrompt(
       }
     }, 1000);
     
-    await updateStreamMessage(`${contextHeader}\n📌 **Prompt**: ${prompt}\n\n📝 Sending prompt...`, [buttons]);
+    await updateStreamMessage(`${contextHeader}\n📌 **Prompt**: ${shownPrompt}\n\n📝 Sending prompt...`, [buttons]);
     await sessionManager.sendPrompt(port, sessionId, prompt, preferredModel);
     promptSent = true;
     
@@ -393,7 +398,7 @@ export async function runPrompt(
     await history?.finish();
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const edited = await updateStreamMessage(`${contextHeader}\n📌 **Prompt**: ${prompt}\n\n❌ OpenCode execution failed: ${errorMessage}`, []);
+    const edited = await updateStreamMessage(`${contextHeader}\n📌 **Prompt**: ${shownPrompt}\n\n❌ OpenCode execution failed: ${errorMessage}`, []);
     if (!edited) {
       await safeSend(`❌ OpenCode execution failed: ${errorMessage}`);
     }
