@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { HistoryRenderer, describeBackgroundProcessExit, describeTool, joinLines, quote, quoteChunks } from '../services/historyRenderer.js';
 import type { ToolPart } from '../types/index.js';
+import type { HistoryMessageKind } from '../services/configStore.js';
 
-const OPTIONS = { toolCalls: true, toolCallsFlushSeconds: 30, reasoning: false };
+const OPTIONS = { toolCalls: true, toolCallsFlushSeconds: 30, reasoning: false, silent: [] as HistoryMessageKind[] };
 
 function tool(id: string, command: string, status: 'completed' | 'error' | 'running' = 'completed'): ToolPart {
   return { id, sessionID: 'session-1', messageID: 'message-1', tool: 'bash', state: { status, input: { command } } };
@@ -97,6 +98,26 @@ describe('HistoryRenderer', () => {
     await renderer.finish();
 
     expect(sent).toEqual(['> 💭 The data looks noisy.\n> Try a median filter.', 'Applying a median filter']);
+  });
+
+  it('posts the kinds listed in silent without a notification', async () => {
+    const calls: [string, { silent: boolean }][] = [];
+    const renderer = new HistoryRenderer(async (content, options) => calls.push([content, options]), {
+      ...OPTIONS,
+      reasoning: true,
+      silent: ['reasoning', 'toolCalls'],
+    });
+
+    renderer.onReasoning('reasoning-1', 'Thinking', true);
+    renderer.onTool(tool('tool-1', 'ls'));
+    renderer.onText('step-1', 'Done with the setup', true);
+    await renderer.finish();
+
+    expect(calls).toEqual([
+      ['> 💭 Thinking', { silent: true }],
+      ['-# 🔧 **bash** `ls`', { silent: true }],
+      ['Done with the setup', { silent: false }],
+    ]);
   });
 
   describe('periodic posting of the tool calls', () => {

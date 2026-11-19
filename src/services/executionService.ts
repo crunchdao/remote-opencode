@@ -4,7 +4,8 @@ import {
   ButtonStyle,
   Message,
   TextBasedChannel,
-  EmbedBuilder
+  EmbedBuilder,
+  MessageFlags
 } from 'discord.js';
 import * as dataStore from './dataStore.js';
 import * as sessionManager from './sessionManager.js';
@@ -128,9 +129,9 @@ export async function runPrompt(
     }
   };
 
-  const safeSend = async (content: string): Promise<boolean> => {
+  const safeSend = async (content: string, options?: { silent: boolean }): Promise<boolean> => {
     try {
-      await (channel as any).send({ content });
+      await (channel as any).send(options?.silent ? { content, flags: MessageFlags.SuppressNotifications } : { content });
       return true;
     } catch (error) {
       console.error('Failed to send message:', error instanceof Error ? error.message : error);

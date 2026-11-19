@@ -47,12 +47,21 @@ export interface HistoryConfig {
   toolCallsFlushSeconds: number;
   /** Post the agent's reasoning steps, as quotes, for the models that expose them. */
   reasoning: boolean;
+  /** The kinds of messages posted as `@silent`: they appear in the thread, without a notification. */
+  silent: HistoryMessageKind[];
 }
+
+/**
+ * `text` and `reasoning` steps, `toolCalls` lines, `messages` (quoted messages to the agent) and `notices` (one-line
+ * notices, like a background process that ended).
+ */
+export type HistoryMessageKind = 'text' | 'reasoning' | 'toolCalls' | 'messages' | 'notices';
 
 const DEFAULT_HISTORY_CONFIG: HistoryConfig = {
   toolCalls: true,
   toolCallsFlushSeconds: 30,
   reasoning: false,
+  silent: [],
 };
 
 const CONFIG_DIR = join(homedir(), '.remote-opencode');
@@ -165,7 +174,13 @@ export function getOutputMode(): OutputMode {
 }
 
 export function getHistoryConfig(): HistoryConfig {
-  return { ...DEFAULT_HISTORY_CONFIG, ...loadConfig().history };
+  const config = { ...DEFAULT_HISTORY_CONFIG, ...loadConfig().history };
+
+  // A hand-written config.json can hold anything: fall back to the defaults rather than crash a run.
+  if (!Array.isArray(config.silent)) config.silent = DEFAULT_HISTORY_CONFIG.silent;
+  if (!(config.toolCallsFlushSeconds > 0)) config.toolCallsFlushSeconds = DEFAULT_HISTORY_CONFIG.toolCallsFlushSeconds;
+
+  return config;
 }
 
 /** The behavior options (README, "Behavior options") with their effective values, defaults included. */

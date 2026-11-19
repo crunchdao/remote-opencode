@@ -1,9 +1,9 @@
 import type { ToolPart } from '../types/index.js';
-import type { HistoryConfig } from './configStore.js';
+import type { HistoryConfig, HistoryMessageKind } from './configStore.js';
 import { formatOutputForMobile } from '../utils/messageFormatter.js';
 
-/** Posts one message in the thread. */
-export type SendMessage = (content: string) => Promise<unknown>;
+/** Posts one message in the thread; a silent one notifies nobody (Discord's `@silent`). */
+export type SendMessage = (content: string, options: { silent: boolean }) => Promise<unknown>;
 
 // Discord accepts 2000 characters per message; the margin leaves room for the markdown added around the text.
 const MESSAGE_LIMIT = 1900;
@@ -73,7 +73,8 @@ export class HistoryRenderer {
     this.postStepsBefore(null);
     this.enqueue(async () => {
       await this.flushToolLines();
-      await this.post(describeBackgroundProcessExit(text) ?? quote(text, '💬 **Message to the agent:**'));
+      const notice = describeBackgroundProcessExit(text);
+      await (notice ? this.post(notice, 'notices') : this.post(quote(text, '💬 **Message to the agent:**'), 'messages'));
     });
   }
 
@@ -122,7 +123,7 @@ export class HistoryRenderer {
     await this.flushToolLines();
     const chunks = step.kind === 'reasoning' ? quoteChunks(text, '💭 ') : formatOutputForMobile(text).chunks;
     for (const chunk of chunks) {
-      await this.post(chunk);
+      await this.post(chunk, step.kind);
     }
   }
 
@@ -131,12 +132,12 @@ export class HistoryRenderer {
     this.toolLines = [];
 
     for (const chunk of joinLines(lines)) {
-      await this.post(chunk);
+      await this.post(chunk, 'toolCalls');
     }
   }
 
-  private async post(content: string): Promise<void> {
-    await this.send(content);
+  private async post(content: string, kind: HistoryMessageKind): Promise<void> {
+    await this.send(content, { silent: this.options.silent.includes(kind) });
     this.postedCount++;
   }
 
