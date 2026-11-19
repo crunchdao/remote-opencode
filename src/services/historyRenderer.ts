@@ -62,7 +62,10 @@ export class HistoryRenderer {
     });
   }
 
-  /** A message reached the session from elsewhere than this thread: it is quoted where the agent received it. */
+  /**
+   * A message reached the session from elsewhere than this thread: it is quoted where the agent received it, or shown
+   * as one line when it is a notice that a background process ended.
+   */
   onUserMessage(id: string, text: string): void {
     if (this.posted.has(id) || !text.trim()) return;
 
@@ -70,7 +73,7 @@ export class HistoryRenderer {
     this.postStepsBefore(null);
     this.enqueue(async () => {
       await this.flushToolLines();
-      await this.post(quote(text, '💬 **Message to the agent:**'));
+      await this.post(describeBackgroundProcessExit(text) ?? quote(text, '💬 **Message to the agent:**'));
     });
   }
 
@@ -154,6 +157,19 @@ export function describeTool(part: ToolPart): string {
   const icon = part.state?.status === 'error' ? '❌' : '🔧';
 
   return `-# ${icon} **${part.tool}** \`${shortened.replace(/`/g, "'")}\``;
+}
+
+/**
+ * One subtext line for the message the opencode-pty plugin sends to the session when a background process ends
+ * (`<pty_exited>`, then `Field: value` lines), or null for any other message.
+ */
+export function describeBackgroundProcessExit(text: string): string | null {
+  if (!text.trimStart().startsWith('<pty_exited>')) return null;
+
+  const field = (name: string) => text.match(new RegExp(`^${name}: (.*)$`, 'm'))?.[1]?.trim() ?? '?';
+  const timedOut = field('Timed Out') === 'yes' ? ', timed out' : '';
+
+  return `-# 🔔 background process ended: \`${field('Description').replace(/`/g, "'")}\` (exit code ${field('Exit Code')}${timedOut})`;
 }
 
 /** Lines joined into as few messages as the length limit allows. */

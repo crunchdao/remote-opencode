@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { HistoryRenderer, describeTool, joinLines, quote, quoteChunks } from '../services/historyRenderer.js';
+import { HistoryRenderer, describeBackgroundProcessExit, describeTool, joinLines, quote, quoteChunks } from '../services/historyRenderer.js';
 import type { ToolPart } from '../types/index.js';
 
 const OPTIONS = { toolCalls: true, toolCallsFlushSeconds: 30, reasoning: false };
@@ -130,6 +130,45 @@ describe('describeTool', () => {
 
   it('replaces the backticks that would break the code span', () => {
     expect(describeTool(tool('tool-1', 'echo `date`'))).toBe("-# 🔧 **bash** `echo 'date'`");
+  });
+});
+
+describe('describeBackgroundProcessExit', () => {
+  // As sent by opencode-pty 0.4.0 (notification-manager.js).
+  const notice = (exitCode: number, timedOut: string) => [
+    '<pty_exited>',
+    'ID: pty_1',
+    'Description: crunch run wait `126296`',
+    `Exit Code: ${exitCode}`,
+    'TimeoutSeconds: none',
+    `Timed Out: ${timedOut}`,
+    'Output Lines: 12',
+    'Last Line: wait: run succeeded',
+    '</pty_exited>',
+    '',
+    'Use pty_read to check the full output.',
+  ].join('\n');
+
+  it('describes the process that ended in one line', () => {
+    expect(describeBackgroundProcessExit(notice(3, 'no'))).toBe("-# 🔔 background process ended: `crunch run wait '126296'` (exit code 3)");
+  });
+
+  it('says when the process timed out', () => {
+    expect(describeBackgroundProcessExit(notice(143, 'yes'))).toContain('(exit code 143, timed out)');
+  });
+
+  it('leaves any other message alone', () => {
+    expect(describeBackgroundProcessExit('Please continue')).toBeNull();
+  });
+
+  it('is used for the messages that reach the session', async () => {
+    const sent: string[] = [];
+    const renderer = new HistoryRenderer(async (content) => sent.push(content), OPTIONS);
+
+    renderer.onUserMessage('user-1', notice(0, 'no'));
+    await renderer.finish();
+
+    expect(sent).toEqual(["-# 🔔 background process ended: `crunch run wait '126296'` (exit code 0)"]);
   });
 });
 
