@@ -49,6 +49,11 @@ export interface AppConfig {
    * `/opencode` would. Unset: no endpoint.
    */
   controlPort?: number;
+  /**
+   * When the bot starts, start the opencode server of every bound project that has thread sessions, as their first
+   * prompt would: clients sending prompts to these sessions (scripts) find their server after a restart.
+   */
+  resumeSessions?: boolean;
 }
 
 export type BusyMessagesMode = 'queue' | 'interrupt';
@@ -212,6 +217,10 @@ export function getControlPort(): number | null {
   return Number.isInteger(port) && (port as number) > 0 && (port as number) < 65536 ? (port as number) : null;
 }
 
+export function getResumeSessions(): boolean {
+  return loadConfig().resumeSessions ?? false;
+}
+
 /** The behavior options (README, "Behavior options") with their effective values, defaults included. */
 export function getBehaviorOptions(): Record<string, unknown> {
   return {
@@ -222,6 +231,7 @@ export function getBehaviorOptions(): Record<string, unknown> {
     followExternalTurns: getFollowExternalTurns(),
     autoAnswerQuestions: getAutoAnswerQuestions(),
     controlPort: getControlPort(),
+    resumeSessions: getResumeSessions(),
   };
 }
 

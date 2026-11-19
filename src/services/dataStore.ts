@@ -143,6 +143,10 @@ export function getAllThreadSessions(): ThreadSession[] {
   return loadData().threadSessions ?? [];
 }
 
+export function getAllBindings(): ChannelBinding[] {
+  return loadData().bindings ?? [];
+}
+
 export function setWorktreeMapping(mapping: WorktreeMapping): void {
   const data = loadData();
   if (!data.worktreeMappings) {

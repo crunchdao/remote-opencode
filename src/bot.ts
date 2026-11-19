@@ -1,6 +1,7 @@
 import { Client, GatewayIntentBits, Events } from 'discord.js';
 import pc from 'picocolors';
-import { getBotConfig, getControlPort } from './services/configStore.js';
+import { getBotConfig, getControlPort, getResumeSessions } from './services/configStore.js';
+import { resumeSessions } from './services/sessionResumer.js';
 import { startControlServer } from './services/controlServer.js';
 import { handleInteraction } from './handlers/interactionHandler.js';
 import { handleMessageCreate } from './handlers/messageHandler.js';
@@ -33,6 +34,10 @@ export async function startBot(): Promise<void> {
 
     const controlPort = getControlPort();
     if (controlPort !== null) startControlServer(c, controlPort);
+
+    if (getResumeSessions()) {
+      resumeSessions().catch((error) => console.error('Could not resume the sessions:', error instanceof Error ? error.message : error));
+    }
   });
   
   client.on(Events.InteractionCreate, handleInteraction);
