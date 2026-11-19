@@ -322,7 +322,25 @@ describe("serveManager", () => {
       await expect(promise).resolves.toBeUndefined();
       expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:14097/session", {
         headers: {},
+        signal: expect.any(AbortSignal),
       });
+    });
+
+    it("should give up on a probe that hangs and try again", async () => {
+      const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+      vi.mocked(fetch)
+        .mockRejectedValueOnce(new DOMException("The operation timed out.", "TimeoutError"))
+        .mockResolvedValueOnce({ ok: true } as Response);
+
+      const promise = serveManager.waitForReady(14097);
+
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(1000);
+
+      await expect(promise).resolves.toBeUndefined();
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(timeoutSpy).toHaveBeenCalledWith(serveManager.READY_PROBE_TIMEOUT_MS);
+      timeoutSpy.mockRestore();
     });
 
     it("should retry if fetch fails or returns not ok", async () => {
@@ -420,6 +438,7 @@ describe("serveManager", () => {
         const expected = `Basic ${Buffer.from("opencode:s3cret").toString("base64")}`;
         expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:14097/session", {
           headers: { Authorization: expected },
+          signal: expect.any(AbortSignal),
         });
       });
 

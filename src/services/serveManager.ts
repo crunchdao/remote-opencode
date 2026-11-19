@@ -266,6 +266,10 @@ export function stopServe(projectPath: string, model?: string): boolean {
   return true;
 }
 
+// A server that is still initializing can accept the connection and never answer: without a timeout, one probe
+// would wait well past the overall readiness timeout.
+export const READY_PROBE_TIMEOUT_MS = 2000;
+
 export async function waitForReady(
   port: number,
   timeout: number = 30000,
@@ -294,7 +298,10 @@ export async function waitForReady(
     }
 
     try {
-      const response = await fetch(url, { headers: getAuthHeaders() });
+      const response = await fetch(url, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(READY_PROBE_TIMEOUT_MS),
+      });
       if (response.ok) {
         return;
       }
