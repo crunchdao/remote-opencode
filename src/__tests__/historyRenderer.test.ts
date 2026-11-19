@@ -5,7 +5,7 @@ import type { HistoryMessageKind } from '../services/configStore.js';
 
 const OPTIONS = { toolCalls: true, toolCallsFlushSeconds: 30, reasoning: false, silent: [] as HistoryMessageKind[] };
 
-function tool(id: string, command: string, status: 'completed' | 'error' | 'running' = 'completed'): ToolPart {
+function tool(id: string, command: string, status: 'completed' | 'error' | 'running' | 'pending' = 'completed'): ToolPart {
   return { id, sessionID: 'session-1', messageID: 'message-1', tool: 'bash', state: { status, input: { command } } };
 }
 
@@ -98,6 +98,21 @@ describe('HistoryRenderer', () => {
     await renderer.finish();
 
     expect(sent).toEqual(['> 💭 The data looks noisy.\n> Try a median filter.', 'Applying a median filter']);
+  });
+
+  it('keeps a step that is still empty when the next one starts, and posts it once its text arrives', async () => {
+    // As opencode 1.19 sends a reasoning step followed by a tool call: the step starts empty, the tool call arrives,
+    // then the step's final text.
+    const renderer = new HistoryRenderer(send, { ...OPTIONS, reasoning: true });
+
+    renderer.onReasoning('reasoning-1', '', false);
+    renderer.onTool(tool('tool-1', 'crunch --help', 'pending'));
+    await new Promise((resolve) => setTimeout(resolve, 0)); // the events arrive one by one
+    renderer.onReasoning('reasoning-1', 'Exploring the crunch tools', true);
+    renderer.onTool(tool('tool-1', 'crunch --help'));
+    await renderer.finish();
+
+    expect(sent).toEqual(['> 💭 Exploring the crunch tools', '-# 🔧 **bash** `crunch --help`']);
   });
 
   it('posts the kinds listed in silent without a notification', async () => {

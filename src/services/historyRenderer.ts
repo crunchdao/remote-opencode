@@ -121,13 +121,15 @@ export class HistoryRenderer {
   }
 
   private async postStep(id: string): Promise<void> {
-    if (this.posted.has(id)) return;
-    this.posted.add(id);
-
     const step = this.steps.get(id);
-    this.steps.delete(id);
     const text = step?.text.trim();
-    if (!step || !text) return;
+
+    // A step can still be empty when the next one starts (opencode sends a reasoning step's text only at its end,
+    // after the tool call that follows it has started): it stays pending until its text arrives.
+    if (this.posted.has(id) || !step || !text) return;
+
+    this.posted.add(id);
+    this.steps.delete(id);
 
     await this.flushToolLines();
     const chunks = step.kind === 'reasoning' ? quoteChunks(text, '💭 ') : formatOutputForMobile(text).chunks;
