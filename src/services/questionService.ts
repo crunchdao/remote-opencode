@@ -44,5 +44,6 @@ export function describeAnsweredQuestion(request: QuestionRequest): string {
   const asked = request.questions.map((question) => question.question).join(' / ');
   const shortened = asked.length > QUESTION_LIMIT ? `${asked.slice(0, QUESTION_LIMIT)}…` : asked;
 
-  return `-# ❓ the agent asked "${shortened.replace(/\s+/g, ' ')}", answered automatically (\`autoAnswerQuestions\`)`;
+  // The same shape as the tool call lines: a bold label, then its subject.
+  return `-# ❓ **question answered automatically** "${shortened.replace(/\s+/g, ' ')}"`;
 }

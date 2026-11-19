@@ -163,7 +163,11 @@ export class HistoryRenderer {
 /** One subtext line (`-# `), so tool calls stand apart from the agent's own words. */
 export function describeTool(part: ToolPart): string {
   const input = part.state?.input ?? {};
-  const subject = input.command ?? input.filePath ?? input.url ?? input.pattern ?? input.path ?? JSON.stringify(input);
+  const base = input.command ?? input.filePath ?? input.url ?? input.pattern ?? input.path;
+  // Some tools take the command's arguments apart (opencode-pty's `pty_spawn`: `command` and `args`).
+  const subject = base === undefined
+    ? JSON.stringify(input)
+    : Array.isArray(input.args) && input.args.length ? `${base} ${input.args.join(' ')}` : base;
   const oneLine = String(subject).replace(/\s+/g, ' ').trim();
   const shortened = oneLine.length > TOOL_SUBJECT_LIMIT ? `${oneLine.slice(0, TOOL_SUBJECT_LIMIT)}…` : oneLine;
   const icon = part.state?.status === 'error' ? '❌' : '🔧';
@@ -181,7 +185,8 @@ export function describeBackgroundProcessExit(text: string): string | null {
   const field = (name: string) => text.match(new RegExp(`^${name}: (.*)$`, 'm'))?.[1]?.trim() ?? '?';
   const timedOut = field('Timed Out') === 'yes' ? ', timed out' : '';
 
-  return `-# 🔔 background process ended: \`${field('Description').replace(/`/g, "'")}\` (exit code ${field('Exit Code')}${timedOut})`;
+  // The same shape as the tool call lines: a bold label, then its subject.
+  return `-# 🔔 **background process ended** \`${field('Description').replace(/`/g, "'")}\` (exit code ${field('Exit Code')}${timedOut})`;
 }
 
 /** Lines joined into as few messages as the length limit allows. */

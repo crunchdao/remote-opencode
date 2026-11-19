@@ -164,6 +164,11 @@ describe('describeTool', () => {
     expect(line.length).toBeLessThan(200);
   });
 
+  it('adds the arguments of a tool that takes them apart', () => {
+    const part: ToolPart = { id: 'tool-1', sessionID: 'session-1', messageID: 'message-1', tool: 'pty_spawn', state: { status: 'completed', input: { command: 'sleep', args: ['120'], notifyOnExit: true } } };
+    expect(describeTool(part)).toBe('-# 🔧 **pty_spawn** `sleep 120`');
+  });
+
   it('replaces the backticks that would break the code span', () => {
     expect(describeTool(tool('tool-1', 'echo `date`'))).toBe("-# 🔧 **bash** `echo 'date'`");
   });
@@ -186,7 +191,7 @@ describe('describeBackgroundProcessExit', () => {
   ].join('\n');
 
   it('describes the process that ended in one line', () => {
-    expect(describeBackgroundProcessExit(notice(3, 'no'))).toBe("-# 🔔 background process ended: `crunch run wait '126296'` (exit code 3)");
+    expect(describeBackgroundProcessExit(notice(3, 'no'))).toBe("-# 🔔 **background process ended** `crunch run wait '126296'` (exit code 3)");
   });
 
   it('says when the process timed out', () => {
@@ -204,7 +209,7 @@ describe('describeBackgroundProcessExit', () => {
     renderer.onUserMessage('user-1', notice(0, 'no'));
     await renderer.finish();
 
-    expect(sent).toEqual(["-# 🔔 background process ended: `crunch run wait '126296'` (exit code 0)"]);
+    expect(sent).toEqual(["-# 🔔 **background process ended** `crunch run wait '126296'` (exit code 0)"]);
   });
 });
 

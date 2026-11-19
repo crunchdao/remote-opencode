@@ -44,7 +44,7 @@ describe('questionService', () => {
 
     expect(sessionManager.replyToQuestion).toHaveBeenCalledTimes(1);
     expect(sessionManager.replyToQuestion).toHaveBeenCalledWith(14097, asked.id, [['Decide yourself.'], ['Decide yourself.']]);
-    expect(notice).toBe('-# ❓ the agent asked "Which model should I try next? / Submit now?", answered automatically (`autoAnswerQuestions`)');
+    expect(notice).toBe('-# ❓ **question answered automatically** "Which model should I try next? / Submit now?"');
     expect(again).toBeNull();
   });
 
