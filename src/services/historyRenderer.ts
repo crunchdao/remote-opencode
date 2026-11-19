@@ -9,6 +9,8 @@ export type SendMessage = (content: string, options: { silent: boolean }) => Pro
 const MESSAGE_LIMIT = 1900;
 const TOOL_SUBJECT_LIMIT = 160;
 
+type StepKind = 'text' | 'reasoning';
+
 /**
  * `outputMode: history`: posts a run as it goes, one message per finished step of the agent, in order, and its tool
  * calls as compact lines between them. Nothing is edited afterwards, so the whole run stays readable in the thread.
@@ -16,8 +18,6 @@ const TOOL_SUBJECT_LIMIT = 160;
  * Steps are posted once complete, or as soon as a later step starts (a step is never updated after that). Tool call
  * lines are batched: posted every `toolCallsFlushSeconds`, and before the next step.
  */
-type StepKind = 'text' | 'reasoning';
-
 export class HistoryRenderer {
   private readonly steps = new Map<string, { kind: StepKind; text: string }>();
   private readonly posted = new Set<string>();
