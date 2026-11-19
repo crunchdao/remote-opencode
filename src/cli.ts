@@ -8,7 +8,7 @@ import { runSetupWizard } from './setup/wizard.js';
 import { deployCommands } from './setup/deploy.js';
 import { undeployCommands } from './setup/undeploy.js';
 import { startBot } from './bot.js';
-import { hasBotConfig, getConfigDir, getAllowedUserIds, addAllowedUserId, removeAllowedUserId, setAllowedUserIds, getOpenAIApiKey, setOpenAIApiKey, removeOpenAIApiKey } from './services/configStore.js';
+import { hasBotConfig, getConfigDir, getBehaviorOptions, getAllowedUserIds, addAllowedUserId, removeAllowedUserId, setAllowedUserIds, getOpenAIApiKey, setOpenAIApiKey, removeOpenAIApiKey } from './services/configStore.js';
 
 const require = createRequire(import.meta.url);
 // In dev mode (src/cli.ts), package.json is one level up
@@ -89,6 +89,10 @@ program
     console.log(pc.bold('\nConfiguration:'));
     console.log(`  Config directory: ${pc.cyan(getConfigDir())}`);
     console.log(`  Bot configured: ${hasBotConfig() ? pc.green('Yes') : pc.red('No')}`);
+    console.log(pc.bold('\nBehavior options:'));
+    for (const [key, value] of Object.entries(getBehaviorOptions())) {
+      console.log(`  ${key}: ${pc.cyan(JSON.stringify(value))}`);
+    }
     console.log();
   });
 

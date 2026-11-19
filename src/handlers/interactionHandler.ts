@@ -1,9 +1,20 @@
 import { Interaction, MessageFlags } from 'discord.js';
 import { commands } from '../commands/index.js';
 import { handleButton } from './buttonHandler.js';
-import { isAuthorized } from '../services/configStore.js';
+import { isAuthorized, getIgnoreUnboundChannels } from '../services/configStore.js';
+import { getChannelBinding } from '../services/dataStore.js';
+
+/** Whether the interaction comes from a channel bound to a project of this instance, or from a thread inside one. */
+function isFromBoundChannel(interaction: Interaction): boolean {
+  const channel = interaction.channel;
+  const channelId = channel?.isThread() ? channel.parentId : interaction.channelId;
+  return !!channelId && !!getChannelBinding(channelId);
+}
 
 export async function handleInteraction(interaction: Interaction) {
+  // Another instance sharing this bot handles it.
+  if (getIgnoreUnboundChannels() && !isFromBoundChannel(interaction)) return;
+
   if (interaction.isButton()) {
     if (!isAuthorized(interaction.user.id)) {
       await interaction.reply({

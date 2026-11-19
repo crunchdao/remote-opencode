@@ -18,6 +18,11 @@ export interface AppConfig {
   ports?: PortConfig;
   allowedUserIds?: string[];
   openaiApiKey?: string;
+  /**
+   * Answer slash commands and buttons only in the channels bound to one of this instance's projects (and in their
+   * threads), and stay silent elsewhere. For several instances sharing one Discord bot, each bound to its own channels.
+   */
+  ignoreUnboundChannels?: boolean;
 }
 
 const CONFIG_DIR = join(homedir(), '.remote-opencode');
@@ -115,6 +120,17 @@ export function isAuthorized(userId: string): boolean {
   const ids = getAllowedUserIds();
   if (ids.length === 0) return true; // no restriction
   return ids.includes(userId);
+}
+
+export function getIgnoreUnboundChannels(): boolean {
+  return loadConfig().ignoreUnboundChannels ?? false;
+}
+
+/** The behavior options (README, "Behavior options") with their effective values, defaults included. */
+export function getBehaviorOptions(): Record<string, unknown> {
+  return {
+    ignoreUnboundChannels: getIgnoreUnboundChannels(),
+  };
 }
 
 export function getOpenAIApiKey(): string | undefined {

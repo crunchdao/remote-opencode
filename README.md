@@ -685,6 +685,15 @@ All configuration is stored in `~/.remote-opencode/`:
 > `allowedUserIds` is optional. When omitted or empty, access control is disabled and all users can use the bot.
 > `openaiApiKey` is optional. When omitted, voice message transcription is disabled. Can also be set via `OPENAI_API_KEY` environment variable (takes priority).
 
+### Behavior options
+
+Optional keys of `config.json`. Each one defaults to the behavior described in the rest of this README. They are read
+on every use, so a change applies without restarting the bot.
+
+| Key                     | Default | Description                                                                                                                                                                                                                                          |
+| ----------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ignoreUnboundChannels` | `false` | When `true`, slash commands and buttons are only answered in channels bound to one of this instance's projects (and in their threads). Lets several instances share one Discord bot, each bound to its own channels. Bind the channels before turning it on. |
+
 ### data.json Structure
 
 ```json
