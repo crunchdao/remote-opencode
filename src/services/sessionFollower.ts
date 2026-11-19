@@ -10,6 +10,8 @@ import { getFollowExternalTurns, getHistoryConfig } from './configStore.js';
 import { isBusy, processNextInQueue } from './queueManager.js';
 
 const POLL_INTERVAL_MS = 15_000;
+// Discord shows the typing indicator for about 10 seconds: sent again before it fades, as during a run from Discord.
+const TYPING_INTERVAL_MS = 8_000;
 
 interface FollowedSession {
   threadId: string;
@@ -18,6 +20,8 @@ interface FollowedSession {
   sseClient: SSEClient;
   /** The turn being shown, from its first event to the session going idle. */
   turn: HistoryRenderer | null;
+  /** The typing indicator, sent while the turn runs. */
+  typingTimer: NodeJS.Timeout | null;
 }
 
 // One per thread, while its session's opencode server runs.
@@ -91,7 +95,7 @@ function syncFollowedSessions(client: Client): void {
 
 function follow(client: Client, threadId: string, sessionId: string, port: number): void {
   const sseClient = new SSEClient();
-  const session: FollowedSession = { threadId, sessionId, port, sseClient, turn: null };
+  const session: FollowedSession = { threadId, sessionId, port, sseClient, turn: null, typingTimer: null };
   followed.set(threadId, session);
 
   // A run started from Discord is shown by the execution service.
@@ -101,6 +105,7 @@ function follow(client: Client, threadId: string, sessionId: string, port: numbe
     if (!session.turn) {
       session.turn = new HistoryRenderer((content, options) => send(client, threadId, content, options.silent), getHistoryConfig());
       session.turn.start();
+      startTyping(client, session);
     }
     return session.turn;
   };
@@ -140,6 +145,7 @@ function follow(client: Client, threadId: string, sessionId: string, port: numbe
     const ended = session.turn;
     if (!ended) return;
     session.turn = null;
+    stopTyping(session);
 
     void (async () => {
       await ended.finish();
@@ -180,7 +186,25 @@ function unfollow(threadId: string): void {
 
   followed.delete(threadId);
   session.sseClient.disconnect();
+  stopTyping(session);
   void session.turn?.finish();
+}
+
+function startTyping(client: Client, session: FollowedSession): void {
+  const type = () => {
+    fetchThread(client, session.threadId)
+      .then((channel) => (channel && 'sendTyping' in channel ? channel.sendTyping() : undefined))
+      .catch(() => { });
+  };
+  type();
+  session.typingTimer = setInterval(type, TYPING_INTERVAL_MS);
+}
+
+function stopTyping(session: FollowedSession): void {
+  if (session.typingTimer) {
+    clearInterval(session.typingTimer);
+    session.typingTimer = null;
+  }
 }
 
 async function fetchThread(client: Client, threadId: string): Promise<TextBasedChannel | null> {

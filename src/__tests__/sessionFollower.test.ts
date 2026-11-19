@@ -37,6 +37,7 @@ function createClient() {
     isTextBased: () => true,
     parentId: 'channel-1',
     send: vi.fn().mockResolvedValue(undefined),
+    sendTyping: vi.fn().mockResolvedValue(undefined),
   };
   const client = { channels: { fetch: vi.fn().mockResolvedValue(thread) } } as any;
   return { client, thread };
@@ -100,6 +101,28 @@ describe('sessionFollower', () => {
       'Trying a larger model',
     ]);
     expect(queueManager.processNextInQueue).toHaveBeenCalledWith(thread, 'thread-1', 'channel-1');
+  });
+
+  it('shows the typing indicator during a followed turn, and stops it when the turn ends', async () => {
+    vi.useFakeTimers();
+    try {
+      const { client, thread } = createClient();
+      startSessionFollower(client);
+      const [sseClient] = sseClients;
+
+      sseClient.callbacks.part({ id: 'step-1', sessionID: 'session-1', messageID: 'message-2', text: 'Working', ended: false });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(thread.sendTyping).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(8_000);
+      expect(thread.sendTyping).toHaveBeenCalledTimes(2);
+
+      sseClient.callbacks.idle('session-1');
+      await vi.advanceTimersByTimeAsync(16_000);
+      expect(thread.sendTyping).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('leaves a run started from Discord to the execution service', async () => {
