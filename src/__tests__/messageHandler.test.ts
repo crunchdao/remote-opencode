@@ -5,6 +5,7 @@ vi.mock('../services/executionService.js');
 vi.mock('../services/queueManager.js');
 vi.mock('../services/configStore.js');
 vi.mock('../services/voiceService.js');
+vi.mock('../services/sessionManager.js');
 
 import { handleMessageCreate } from '../handlers/messageHandler.js';
 import * as dataStore from '../services/dataStore.js';
@@ -12,6 +13,7 @@ import * as executionService from '../services/executionService.js';
 import * as queueManager from '../services/queueManager.js';
 import * as configStore from '../services/configStore.js';
 import * as voiceService from '../services/voiceService.js';
+import * as sessionManager from '../services/sessionManager.js';
 import { MessageFlags } from 'discord.js';
 
 function createMockMessage(overrides: Record<string, unknown> = {}) {
@@ -278,5 +280,50 @@ describe('messageHandler - voice messages', () => {
 
       expect(executionService.runPrompt).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('messageHandler - busyMessages', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(dataStore.isPassthroughEnabled).mockReturnValue(true);
+    vi.mocked(configStore.isAuthorized).mockReturnValue(true);
+    vi.mocked(queueManager.isBusy).mockReturnValue(true);
+    vi.mocked(dataStore.getThreadSession).mockReturnValue({ threadId: 'thread-1', sessionId: 'session-1', port: 14097 } as any);
+    vi.mocked(dataStore.getChannelModel).mockReturnValue('provider/model');
+  });
+
+  it('queues the message by default', async () => {
+    vi.mocked(configStore.getBusyMessagesMode).mockReturnValue('queue');
+    const msg = createMockMessage({ content: 'also check the tests' });
+
+    await handleMessageCreate(msg);
+
+    expect(sessionManager.sendPrompt).not.toHaveBeenCalled();
+    expect(dataStore.addToQueue).toHaveBeenCalledWith('thread-1', expect.objectContaining({ prompt: 'also check the tests' }));
+    expect(msg.react).toHaveBeenCalledWith('📥');
+  });
+
+  it('delivers the message to the running session in interrupt mode', async () => {
+    vi.mocked(configStore.getBusyMessagesMode).mockReturnValue('interrupt');
+    vi.mocked(sessionManager.sendPrompt).mockResolvedValue(undefined);
+    const msg = createMockMessage({ content: 'also check the tests' });
+
+    await handleMessageCreate(msg);
+
+    expect(sessionManager.sendPrompt).toHaveBeenCalledWith(14097, 'session-1', 'also check the tests', 'provider/model');
+    expect(dataStore.addToQueue).not.toHaveBeenCalled();
+    expect(msg.react).toHaveBeenCalledWith('💬');
+  });
+
+  it('falls back to the queue when the delivery fails', async () => {
+    vi.mocked(configStore.getBusyMessagesMode).mockReturnValue('interrupt');
+    vi.mocked(sessionManager.sendPrompt).mockRejectedValue(new Error('connection refused'));
+    const msg = createMockMessage({ content: 'also check the tests' });
+
+    await handleMessageCreate(msg);
+
+    expect(dataStore.addToQueue).toHaveBeenCalledWith('thread-1', expect.objectContaining({ prompt: 'also check the tests' }));
+    expect(msg.react).toHaveBeenCalledWith('📥');
   });
 });

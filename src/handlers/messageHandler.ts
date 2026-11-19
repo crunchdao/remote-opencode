@@ -6,8 +6,26 @@ import {
 import * as dataStore from '../services/dataStore.js';
 import { runPrompt } from '../services/executionService.js';
 import { isBusy } from '../services/queueManager.js';
-import { isAuthorized } from '../services/configStore.js';
+import { isAuthorized, getBusyMessagesMode } from '../services/configStore.js';
+import { sendPrompt } from '../services/sessionManager.js';
 import { transcribe, isVoiceEnabled } from '../services/voiceService.js';
+
+/**
+ * Delivers a message to the thread's running session (`busyMessages: interrupt`): opencode adds it to the conversation,
+ * and the agent reads it at its next step. False if there is no session to deliver to, or the delivery failed.
+ */
+async function deliverToRunningSession(threadId: string, parentChannelId: string, prompt: string): Promise<boolean> {
+  const threadSession = dataStore.getThreadSession(threadId);
+  if (!threadSession?.sessionId || !threadSession.port) return false;
+
+  try {
+    await sendPrompt(threadSession.port, threadSession.sessionId, prompt, dataStore.getChannelModel(parentChannelId));
+    return true;
+  } catch (error) {
+    console.error('Could not deliver the message to the running session, queueing it:', error instanceof Error ? error.message : error);
+    return false;
+  }
+}
 
 async function safeReact(message: Message, emoji: string): Promise<void> {
   try {
@@ -60,6 +78,10 @@ export async function handleMessageCreate(message: Message): Promise<void> {
         voiceAttachmentSize: voiceAttachment.size,
       });
     } else {
+      if (getBusyMessagesMode() === 'interrupt' && await deliverToRunningSession(threadId, parentChannelId, prompt)) {
+        await safeReact(message, '💬');
+        return;
+      }
       dataStore.addToQueue(threadId, {
         prompt,
         userId: message.author.id,

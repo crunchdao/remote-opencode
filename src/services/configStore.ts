@@ -23,7 +23,14 @@ export interface AppConfig {
    * threads), and stay silent elsewhere. For several instances sharing one Discord bot, each bound to its own channels.
    */
   ignoreUnboundChannels?: boolean;
+  /**
+   * What happens to a message sent in a thread while its session is working: `queue` runs it after the current run
+   * ends, `interrupt` delivers it to the running session right away (the agent reads it at its next step).
+   */
+  busyMessages?: BusyMessagesMode;
 }
+
+export type BusyMessagesMode = 'queue' | 'interrupt';
 
 const CONFIG_DIR = join(homedir(), '.remote-opencode');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
@@ -126,10 +133,15 @@ export function getIgnoreUnboundChannels(): boolean {
   return loadConfig().ignoreUnboundChannels ?? false;
 }
 
+export function getBusyMessagesMode(): BusyMessagesMode {
+  return loadConfig().busyMessages === 'interrupt' ? 'interrupt' : 'queue';
+}
+
 /** The behavior options (README, "Behavior options") with their effective values, defaults included. */
 export function getBehaviorOptions(): Record<string, unknown> {
   return {
     ignoreUnboundChannels: getIgnoreUnboundChannels(),
+    busyMessages: getBusyMessagesMode(),
   };
 }
 

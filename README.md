@@ -693,6 +693,7 @@ on every use, so a change applies without restarting the bot.
 | Key                     | Default | Description                                                                                                                                                                                                                                          |
 | ----------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ignoreUnboundChannels` | `false` | When `true`, slash commands and buttons are only answered in channels bound to one of this instance's projects (and in their threads). Lets several instances share one Discord bot, each bound to its own channels. Bind the channels before turning it on. |
+| `busyMessages`          | `queue` | What happens to a message sent in a passthrough thread while its session is working. `queue` runs it once the current run ends (📥). `interrupt` delivers it to the running session right away (💬): the agent reads it at its next step, without stopping. A failed delivery falls back to the queue. Voice messages are always queued. |
 
 ### data.json Structure
 
